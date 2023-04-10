@@ -20,6 +20,7 @@ vim.keymap.set('n', '<leader>/', function()
   })
 end, { desc = '[/] Fuzzily search in current buffer' })
 vim.keymap.set('n', '<leader><space>', builtin.buffers, {})
+vim.keymap.set('n', '<leader>sb', builtin.buffers, {})
 
 vim.keymap.set('n', '<leader>sf', builtin.find_files, { desc = '[S]earch [F]iles' })
 vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
