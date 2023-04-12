@@ -49,6 +49,25 @@ local on_attach = function(_, bufnr)
     end, { desc = 'Format current buffer with LSP' })
 end
 
+local util = require('lspconfig/util')
+local path = util.path
+
+local function get_python_path(workspace)
+  -- Use activated virtualenv.
+  if vim.env.VIRTUAL_ENV then
+    return path.join(vim.env.VIRTUAL_ENV, 'bin', 'python')
+  end
+
+  -- Find and use virtualenv in workspace directory.
+  for _, pattern in ipairs({'*', '.*'}) do
+    local match = vim.fn.glob(path.join(workspace, pattern, 'poetry.lock'))
+    if match ~= '' then
+      return path.join(path.dirname(match), 'bin', 'python')
+    end
+  end
+
+end
+
 -- Enable the following language servers
 --  Feel free to add/remove any LSPs that you want here. They will automatically be installed.
 --
@@ -57,7 +76,16 @@ end
 local servers = {
     -- clangd = {},
     -- gopls = {},
-    pyright = {},
+    pyright = {
+        python = {
+            analysis = {
+                autoSearchPaths = true,
+                diagnosticMode = "workspace",
+                useLibraryCodeForTypes = true
+            },
+            pythonPath = get_python_path(workspace)
+        }
+    },
     -- rust_analyzer = {},
     -- tsserver = {},
 
@@ -142,3 +170,39 @@ cmp.setup {
         { name = 'luasnip' },
     },
 }
+
+-- Formatters
+require("mason-null-ls").setup({
+    ensure_installed = { "isort", "black" }
+})
+
+local null_ls = require("null-ls")
+
+local null_ls_sources = {
+    -- python
+    null_ls.builtins.formatting.black.with({
+        extra_args = { "--line-length=120 -t py310 -q" }
+    }),
+    null_ls.builtins.formatting.isort.with({
+        extra_args = { "-l 120" }
+    }),
+}
+
+null_ls.setup({ sources = null_ls_sources })
+
+local augroup = vim.api.nvim_create_augroup("LspFormatting", {})
+require("null-ls").setup({
+    -- you can reuse a shared lspconfig on_attach callback here
+    on_attach = function(client, bufnr)
+        if client.supports_method("textDocument/formatting") then
+            vim.api.nvim_clear_autocmds({ group = augroup, buffer = bufnr })
+            vim.api.nvim_create_autocmd("BufWritePre", {
+                group = augroup,
+                buffer = bufnr,
+                callback = function()
+                    vim.lsp.buf.format({ bufnr = bufnr })
+                end,
+            })
+        end
+    end,
+})
